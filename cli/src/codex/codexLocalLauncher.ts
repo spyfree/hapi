@@ -8,6 +8,27 @@ import { stripCodexCliOverrides } from './utils/codexCliOverrides';
 import { buildCodexPermissionModeCliArgs } from './utils/permissionModeConfig';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
+function prependCodexProfileArg(args: string[] | undefined, profileId: string): string[] {
+    const filtered: string[] = [];
+
+    for (let i = 0; i < (args?.length ?? 0); i += 1) {
+        const arg = args?.[i];
+        if (!arg) {
+            continue;
+        }
+        if (arg === '-p' || arg === '--profile') {
+            i += 1;
+            continue;
+        }
+        if (arg.startsWith('--profile=')) {
+            continue;
+        }
+        filtered.push(arg);
+    }
+
+    return ['--profile', profileId, ...filtered];
+}
+
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {
     const resumeSessionId = session.sessionId;
     let scanner: Awaited<ReturnType<typeof createCodexSessionScanner>> | null = null;
@@ -15,12 +36,16 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
     const managedPermissionMode = permissionMode === 'read-only' || permissionMode === 'safe-yolo' || permissionMode === 'yolo'
         ? permissionMode
         : null;
-    const codexArgs = managedPermissionMode
+    const baseCodexArgs = managedPermissionMode
         ? [
             ...buildCodexPermissionModeCliArgs(managedPermissionMode),
             ...stripCodexCliOverrides(session.codexArgs)
         ]
         : session.codexArgs;
+    const configProfile = process.env.HAPI_CODEX_CONFIG_PROFILE?.trim() || undefined;
+    const codexArgs = configProfile
+        ? prependCodexProfileArg(baseCodexArgs, configProfile)
+        : baseCodexArgs;
 
     // Start hapi hub for MCP bridge (same as remote mode)
     const { server: happyServer, mcpServers } = await buildHapiMcpBridge(session.client);

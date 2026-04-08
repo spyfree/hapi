@@ -5,6 +5,7 @@ import { registerDifftasticHandlers } from './handlers/difftastic'
 import { registerFileHandlers } from './handlers/files'
 import { registerGitHandlers } from './handlers/git'
 import { registerRipgrepHandlers } from './handlers/ripgrep'
+import { registerSessionProfileHandlers } from './handlers/sessionProfiles'
 import { registerSlashCommandHandlers } from './handlers/slashCommands'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerUploadHandlers } from './handlers/uploads'
@@ -17,6 +18,7 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     registerDifftasticHandlers(rpcHandlerManager, workingDirectory)
     registerSlashCommandHandlers(rpcHandlerManager, workingDirectory)
     registerSkillsHandlers(rpcHandlerManager, workingDirectory)
+    registerSessionProfileHandlers(rpcHandlerManager)
     registerGitHandlers(rpcHandlerManager, workingDirectory)
     registerUploadHandlers(rpcHandlerManager)
 }

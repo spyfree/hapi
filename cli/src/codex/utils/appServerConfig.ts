@@ -67,6 +67,7 @@ export function buildThreadStartParams(args: {
     cwd: string;
     mode: EnhancedMode;
     mcpServers: McpServersConfig;
+    configProfile?: string;
     cliOverrides?: CodexCliOverrides;
     baseInstructions?: string;
     developerInstructions?: string;
@@ -86,6 +87,7 @@ export function buildThreadStartParams(args: {
     const configWithInstructions = {
         ...config,
         developer_instructions: resolvedDeveloperInstructions,
+        ...(args.configProfile ? { profile: args.configProfile } : {}),
         ...(args.mode.modelReasoningEffort ? { model_reasoning_effort: args.mode.modelReasoningEffort } : {})
     };
 
