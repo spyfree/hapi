@@ -28,6 +28,7 @@ import {
   buildSpawnProfileEnv,
   resolveSpawnPermissionMode
 } from './sessionProfiles';
+import { getSessionWebhookTimeoutMs } from './sessionWebhookTimeout';
 
 export async function startRunner(): Promise<void> {
   // We don't have cleanup function at the time of server construction
@@ -527,6 +528,7 @@ export async function startRunner(): Promise<void> {
 
         // Wait for webhook to populate session with happySessionId
         logger.debug(`[RUNNER RUN] Waiting for session webhook for PID ${pid}`);
+        const sessionWebhookTimeoutMs = getSessionWebhookTimeoutMs(agent);
 
         const spawnResult = await new Promise<SpawnSessionResult>((resolve) => {
           // Set timeout for webhook
@@ -539,9 +541,7 @@ export async function startRunner(): Promise<void> {
               type: 'error',
               errorMessage: buildWebhookFailureMessage('timeout')
             });
-            // 15 second timeout - I have seen timeouts on 10 seconds
-            // even though session was still created successfully in ~2 more seconds
-          }, 15_000);
+          }, sessionWebhookTimeoutMs);
 
           // Register awaiter
           pidToAwaiter.set(pid, (completedSession) => {
