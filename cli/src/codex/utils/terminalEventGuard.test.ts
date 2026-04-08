@@ -33,6 +33,18 @@ describe('shouldIgnoreTerminalEvent', () => {
         expect(ignored).toBe(false);
     });
 
+    it('accepts anonymous task failures for the active turn when explicitly allowed', () => {
+        const ignored = shouldIgnoreTerminalEvent({
+            eventTurnId: null,
+            currentTurnId: 'turn-1',
+            turnInFlight: true,
+            allowAnonymousTerminalEvent: true,
+            allowAnonymousForActiveTurn: true
+        });
+
+        expect(ignored).toBe(false);
+    });
+
     it('still ignores terminal events without turn_id when current turn id exists', () => {
         const ignored = shouldIgnoreTerminalEvent({
             eventTurnId: null,

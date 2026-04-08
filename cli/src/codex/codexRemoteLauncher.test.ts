@@ -5,7 +5,8 @@ import type { EnhancedMode } from './loop';
 const harness = vi.hoisted(() => ({
     notifications: [] as Array<{ method: string; params: unknown }>,
     registerRequestCalls: [] as string[],
-    initializeCalls: [] as unknown[]
+    initializeCalls: [] as unknown[],
+    startTurnImpl: null as null | ((handler: ((method: string, params: unknown) => void) | null) => void)
 }));
 
 vi.mock('./codexAppServerClient', () => {
@@ -36,6 +37,11 @@ vi.mock('./codexAppServerClient', () => {
         }
 
         async startTurn(): Promise<{ turn: Record<string, never> }> {
+            if (harness.startTurnImpl) {
+                harness.startTurnImpl(this.notificationHandler);
+                return { turn: {} };
+            }
+
             const started = { turn: {} };
             harness.notifications.push({ method: 'turn/started', params: started });
             this.notificationHandler?.('turn/started', started);
@@ -168,6 +174,7 @@ describe('codexRemoteLauncher', () => {
         harness.notifications = [];
         harness.registerRequestCalls = [];
         harness.initializeCalls = [];
+        harness.startTurnImpl = null;
     });
 
     it('finishes a turn and emits ready when task lifecycle events omit turn_id', async () => {
@@ -197,5 +204,30 @@ describe('codexRemoteLauncher', () => {
         expect(sessionEvents.filter((event) => event.type === 'ready').length).toBeGreaterThanOrEqual(1);
         expect(thinkingChanges).toContain(true);
         expect(session.thinking).toBe(false);
+    });
+
+    it('surfaces anonymous app-server errors for the active turn', async () => {
+        harness.startTurnImpl = (notificationHandler) => {
+            const started = { turn: { id: 'turn-active' } };
+            harness.notifications.push({ method: 'turn/started', params: started });
+            notificationHandler?.('turn/started', started);
+
+            const errored = { message: 'context window exceeded' };
+            harness.notifications.push({ method: 'error', params: errored });
+            notificationHandler?.('error', errored);
+        };
+
+        const {
+            session,
+            sessionEvents,
+            thinkingChanges
+        } = createSessionStub();
+
+        const exitReason = await codexRemoteLauncher(session as never);
+
+        expect(exitReason).toBe('exit');
+        expect(thinkingChanges).toContain(true);
+        expect(session.thinking).toBe(false);
+        expect(sessionEvents.filter((event) => event.type === 'ready').length).toBeGreaterThanOrEqual(1);
     });
 });

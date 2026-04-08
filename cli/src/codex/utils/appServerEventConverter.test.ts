@@ -136,6 +136,72 @@ describe('AppServerEventConverter', () => {
         expect(events).toEqual([{ type: 'turn_diff', unified_diff: 'diff --git a b' }]);
     });
 
+    it('handles thread status changes without treating them as unhandled notifications', () => {
+        const converter = new AppServerEventConverter();
+
+        const events = converter.handleNotification('thread/status/changed', {
+            threadId: 'thread-1',
+            status: { type: 'active', activeFlags: [] }
+        });
+
+        expect(events).toEqual([]);
+    });
+
+    it('maps thread system errors to task_failed', () => {
+        const converter = new AppServerEventConverter();
+
+        const events = converter.handleNotification('thread/status/changed', {
+            threadId: 'thread-1',
+            status: {
+                type: 'systemError',
+                message: 'backend unavailable'
+            }
+        });
+
+        expect(events).toEqual([{ type: 'task_failed', error: 'backend unavailable' }]);
+    });
+
+    it('maps direct mcp tool call items', () => {
+        const converter = new AppServerEventConverter();
+
+        const started = converter.handleNotification('item/started', {
+            item: {
+                id: 'mcp-1',
+                type: 'mcpToolCall',
+                server: 'hapi',
+                tool: 'change_title',
+                arguments: { title: 'Rename me' }
+            }
+        });
+
+        const completed = converter.handleNotification('item/completed', {
+            item: {
+                id: 'mcp-1',
+                type: 'mcpToolCall',
+                server: 'hapi',
+                tool: 'change_title',
+                result: {
+                    content: [{ type: 'text', text: 'ok' }]
+                }
+            }
+        });
+
+        expect(started).toEqual([{
+            type: 'mcp_tool_call_begin',
+            call_id: 'mcp-1',
+            server: 'hapi',
+            tool: 'change_title',
+            arguments: { title: 'Rename me' }
+        }]);
+        expect(completed).toEqual([{
+            type: 'mcp_tool_call_end',
+            call_id: 'mcp-1',
+            result: {
+                content: [{ type: 'text', text: 'ok' }]
+            }
+        }]);
+    });
+
     it('unwraps codex/event task lifecycle', () => {
         const converter = new AppServerEventConverter();
 

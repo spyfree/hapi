@@ -8,7 +8,10 @@ export interface SpawnSessionOptions {
     model?: string
     effort?: string
     modelReasoningEffort?: string
+    permissionMode?: 'default' | 'read-only' | 'safe-yolo' | 'yolo'
+    collaborationMode?: 'default' | 'plan'
     yolo?: boolean
+    profileId?: string | null
     token?: string
     sessionType?: 'simple' | 'worktree'
     worktreeName?: string

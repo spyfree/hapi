@@ -7,6 +7,14 @@
 import { FileHandle } from 'node:fs/promises'
 import { readFile, writeFile, mkdir, open, unlink, rename, stat } from 'node:fs/promises'
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs'
+import {
+  MachineSessionProfilesDefaultsSchema,
+  MachineSessionProfilesSchema,
+  SessionProfileSchema,
+  type MachineSessionProfiles,
+  type MachineSessionProfilesDefaults,
+  type SessionProfile
+} from '@hapi/protocol'
 import { configuration } from '@/configuration'
 import { isProcessAlive } from '@/utils/process';
 
@@ -21,6 +29,8 @@ interface Settings {
   apiUrl?: string
   // Legacy field name (for migration, read-only)
   serverUrl?: string
+  sessionProfiles?: SessionProfile[]
+  defaultProfiles?: MachineSessionProfilesDefaults
 }
 
 const defaultSettings: Settings = {}
@@ -61,6 +71,48 @@ export async function writeSettings(settings: Settings): Promise<void> {
   }
 
   await writeFile(configuration.settingsFile, JSON.stringify(settings, null, 2))
+}
+
+function normalizeMachineSessionProfiles(settings: Pick<Settings, 'sessionProfiles' | 'defaultProfiles'>): MachineSessionProfiles {
+  const rawProfiles = Array.isArray(settings.sessionProfiles) ? settings.sessionProfiles : []
+  const profiles = rawProfiles.flatMap((profile) => {
+    const parsed = SessionProfileSchema.safeParse(profile)
+    return parsed.success ? [parsed.data] : []
+  })
+
+  const parsedDefaults = MachineSessionProfilesDefaultsSchema.safeParse(settings.defaultProfiles ?? {})
+  const requestedDefaultId = parsedDefaults.success ? parsedDefaults.data.codexProfileId ?? null : null
+  const validProfileIds = new Set(profiles.map((profile) => profile.id))
+
+  return {
+    profiles,
+    defaults: {
+      codexProfileId: requestedDefaultId && validProfileIds.has(requestedDefaultId)
+        ? requestedDefaultId
+        : null
+    }
+  }
+}
+
+export async function readMachineSessionProfiles(): Promise<MachineSessionProfiles> {
+  const settings = await readSettings()
+  return normalizeMachineSessionProfiles(settings)
+}
+
+export async function writeMachineSessionProfiles(payload: MachineSessionProfiles): Promise<MachineSessionProfiles> {
+  const parsed = MachineSessionProfilesSchema.parse(payload)
+  const normalized = normalizeMachineSessionProfiles({
+    sessionProfiles: parsed.profiles,
+    defaultProfiles: parsed.defaults
+  })
+
+  await updateSettings((current) => ({
+    ...current,
+    sessionProfiles: normalized.profiles,
+    defaultProfiles: normalized.defaults
+  }))
+
+  return normalized
 }
 
 /**

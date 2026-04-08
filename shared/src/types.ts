@@ -16,6 +16,15 @@ export type {
 } from './schemas'
 
 export type { SessionSummary, SessionSummaryMetadata } from './sessionSummary'
+export type {
+    MachineSessionProfiles,
+    MachineSessionProfilesDefaults,
+    SessionProfile,
+    SessionProfileAgent,
+    SessionProfileDefaults,
+    SessionProfilePermissionMode,
+    SessionProfileReasoningEffort
+} from './sessionProfiles'
 export { AGENT_MESSAGE_PAYLOAD_TYPE } from './modes'
 
 export type {

@@ -97,6 +97,24 @@ describe('appServerConfig', () => {
         });
     });
 
+    it('passes Codex config profile via thread config', () => {
+        const params = buildThreadStartParams({
+            cwd: '/workspace/project',
+            mode: { permissionMode: 'default', collaborationMode: 'default' },
+            mcpServers,
+            configProfile: 'ice'
+        });
+
+        expect(params.config).toEqual({
+            'mcp_servers.hapi': {
+                command: 'node',
+                args: ['mcp']
+            },
+            developer_instructions: codexSystemPrompt,
+            profile: 'ice'
+        });
+    });
+
     it('builds turn params with mode defaults', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',

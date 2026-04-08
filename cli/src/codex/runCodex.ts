@@ -16,6 +16,30 @@ import type { ReasoningEffort } from './appServerTypes';
 
 export { emitReadyIfIdle } from './utils/emitReadyIfIdle';
 
+function readInitialPermissionModeFromEnv(): PermissionMode | undefined {
+    const value = process.env.HAPI_CODEX_PERMISSION_MODE;
+    if (!value) {
+        return undefined;
+    }
+
+    const parsed = PermissionModeSchema.safeParse(value);
+    if (!parsed.success || !isPermissionModeAllowedForFlavor(parsed.data, 'codex')) {
+        return undefined;
+    }
+
+    return parsed.data as PermissionMode;
+}
+
+function readInitialCollaborationModeFromEnv(): EnhancedMode['collaborationMode'] | undefined {
+    const value = process.env.HAPI_CODEX_COLLABORATION_MODE;
+    if (!value) {
+        return undefined;
+    }
+
+    const parsed = CodexCollaborationModeSchema.safeParse(value);
+    return parsed.success ? parsed.data : undefined;
+}
+
 export async function runCodex(opts: {
     startedBy?: 'runner' | 'terminal';
     codexArgs?: string[];
@@ -54,10 +78,10 @@ export async function runCodex(opts: {
     const codexCliOverrides = parseCodexCliOverrides(opts.codexArgs);
     const sessionWrapperRef: { current: CodexSession | null } = { current: null };
 
-    let currentPermissionMode: PermissionMode = opts.permissionMode ?? 'default';
+    let currentPermissionMode: PermissionMode = opts.permissionMode ?? readInitialPermissionModeFromEnv() ?? 'default';
     let currentModel = opts.model;
     const currentModelReasoningEffort = opts.modelReasoningEffort;
-    let currentCollaborationMode: EnhancedMode['collaborationMode'] = 'default';
+    let currentCollaborationMode: EnhancedMode['collaborationMode'] = readInitialCollaborationModeFromEnv() ?? 'default';
 
     const lifecycle = createRunnerLifecycle({
         session,

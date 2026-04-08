@@ -257,6 +257,21 @@ export class AppServerEventConverter {
             return events;
         }
 
+        if (method === 'thread/status/changed') {
+            const status = asRecord(paramsRecord.status) ?? paramsRecord;
+            const statusType = asString(status.type);
+            if (statusType === 'systemError') {
+                const message = asString(
+                    status.message ??
+                    status.error ??
+                    asRecord(status.error)?.message ??
+                    paramsRecord.message
+                ) ?? 'Codex thread entered systemError state';
+                events.push({ type: 'task_failed', error: message });
+            }
+            return events;
+        }
+
         if (method === 'thread/started' || method === 'thread/resumed') {
             const thread = asRecord(paramsRecord.thread) ?? paramsRecord;
             const threadId = asString(thread.threadId ?? thread.thread_id ?? thread.id);
@@ -461,6 +476,36 @@ export class AppServerEventConverter {
                     this.commandMeta.delete(itemId);
                     this.commandOutputBuffers.delete(itemId);
                     this.lastCommandOutputDeltaByItemId.delete(itemId);
+                }
+
+                return events;
+            }
+
+            if (itemType === 'mcptoolcall') {
+                if (method === 'item/started') {
+                    const server = asString(item.server ?? item.serverName ?? item.server_name);
+                    const tool = asString(item.tool ?? item.toolName ?? item.tool_name);
+                    const argumentsValue = item.arguments ?? item.input;
+
+                    events.push({
+                        type: 'mcp_tool_call_begin',
+                        call_id: itemId,
+                        ...(server ? { server } : {}),
+                        ...(tool ? { tool } : {}),
+                        ...(argumentsValue !== undefined ? { arguments: argumentsValue } : {})
+                    });
+                }
+
+                if (method === 'item/completed') {
+                    const errorRecord = asRecord(item.error);
+                    const errorMessage = asString(item.error) ?? asString(errorRecord?.message);
+                    const result = item.result ?? (errorMessage ? { Err: errorMessage } : undefined);
+
+                    events.push({
+                        type: 'mcp_tool_call_end',
+                        call_id: itemId,
+                        ...(result !== undefined ? { result } : {})
+                    });
                 }
 
                 return events;

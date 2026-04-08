@@ -21,6 +21,14 @@ function asString(value: unknown): string | undefined {
     return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
+function asBoolean(value: unknown): boolean | undefined {
+    return typeof value === 'boolean' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 function mapDecision(decision: PermissionDecision): { decision: string } {
     switch (decision) {
         case 'approved':
@@ -32,6 +40,93 @@ function mapDecision(decision: PermissionDecision): { decision: string } {
         case 'abort':
             return { decision: 'cancel' };
     }
+}
+
+type ElicitationResult = {
+    action: 'accept' | 'decline' | 'cancel';
+    content?: Record<string, string | number | boolean | string[]>;
+};
+
+function inferElicitationFieldValue(schema: Record<string, unknown>): string | number | boolean | string[] | undefined {
+    const defaultValue = schema.default;
+    if (
+        typeof defaultValue === 'string' ||
+        typeof defaultValue === 'number' ||
+        typeof defaultValue === 'boolean' ||
+        (Array.isArray(defaultValue) && defaultValue.every((item) => typeof item === 'string'))
+    ) {
+        return defaultValue;
+    }
+
+    const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+    if (enumValues && enumValues.length > 0) {
+        if (schema.type === 'array') {
+            const first = enumValues[0];
+            return typeof first === 'string' ? [first] : undefined;
+        }
+        const first = enumValues[0];
+        if (
+            typeof first === 'string' ||
+            typeof first === 'number' ||
+            typeof first === 'boolean'
+        ) {
+            return first;
+        }
+    }
+
+    const schemaType = asString(schema.type);
+    if (schemaType === 'boolean') {
+        return false;
+    }
+    if (schemaType === 'string') {
+        return '';
+    }
+
+    const minimum = asNumber(schema.minimum);
+    if (schemaType === 'integer' || schemaType === 'number') {
+        if (minimum !== undefined) {
+            return minimum;
+        }
+        return 0;
+    }
+
+    return undefined;
+}
+
+function buildElicitationResult(params: unknown): ElicitationResult {
+    const record = asRecord(params) ?? {};
+    const request = asRecord(record.request) ?? record;
+    const requestedSchema = asRecord(request.requestedSchema);
+    const properties = asRecord(requestedSchema?.properties);
+    const required = Array.isArray(requestedSchema?.required)
+        ? requestedSchema.required.filter((value): value is string => typeof value === 'string')
+        : [];
+
+    if (!properties || required.length === 0) {
+        return { action: 'accept' };
+    }
+
+    const content: Record<string, string | number | boolean | string[]> = {};
+    for (const fieldName of required) {
+        const fieldSchema = asRecord(properties[fieldName]);
+        if (!fieldSchema) {
+            logger.debug('[CodexAppServer] Declining elicitation with missing field schema', { fieldName, params });
+            return { action: 'decline' };
+        }
+
+        const inferredValue = inferElicitationFieldValue(fieldSchema);
+        if (inferredValue === undefined) {
+            logger.debug('[CodexAppServer] Declining elicitation with unsupported required field', {
+                fieldName,
+                params
+            });
+            return { action: 'decline' };
+        }
+
+        content[fieldName] = inferredValue;
+    }
+
+    return { action: 'accept', content };
 }
 
 export function registerAppServerPermissionHandlers(args: {
@@ -90,5 +185,13 @@ export function registerAppServerPermissionHandlers(args: {
             decision: 'accept',
             answers
         };
+    });
+
+    client.registerRequestHandler('mcpServer/elicitation/request', async (params) => {
+        const result = buildElicitationResult(params);
+        logger.debug('[CodexAppServer] Responding to MCP elicitation request', {
+            action: result.action
+        });
+        return result;
     });
 }
