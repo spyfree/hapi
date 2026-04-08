@@ -29,6 +29,7 @@ describe('runner session profile helpers', () => {
     afterEach(async () => {
         delete process.env.HAPI_HOME
         delete process.env.HAPI_SESSION_PROFILE_ID
+        delete process.env.HAPI_CODEX_CONFIG_PROFILE
         vi.resetModules()
         await rm(homeDir, { recursive: true, force: true })
     })
@@ -82,13 +83,39 @@ describe('runner session profile helpers', () => {
         await expect(sessionProfiles.assertKnownSpawnProfile('codex', 'ice')).resolves.toBeUndefined()
     })
 
-    it('builds profile env only when a profile id is present', async () => {
-        const { sessionProfiles } = await loadRunnerSessionProfilesWithHome(homeDir)
+    it('builds profile env with the resolved Codex config profile', async () => {
+        const { sessionProfiles, persistence } = await loadRunnerSessionProfilesWithHome(homeDir)
 
-        expect(sessionProfiles.buildSpawnProfileEnv('ice')).toEqual({
-            HAPI_SESSION_PROFILE_ID: 'ice'
+        await persistence.writeMachineSessionProfiles({
+            profiles: [
+                {
+                    id: 'default',
+                    label: 'Default',
+                    agent: 'codex',
+                    defaults: {}
+                },
+                {
+                    id: 'ice',
+                    label: 'Ice',
+                    agent: 'codex',
+                    defaults: {
+                        configProfile: 'ice'
+                    }
+                }
+            ],
+            defaults: {
+                codexProfileId: 'ice'
+            }
         })
-        expect(sessionProfiles.buildSpawnProfileEnv(null)).toEqual({})
+
+        await expect(sessionProfiles.buildSpawnProfileEnv('codex', 'ice')).resolves.toEqual({
+            HAPI_SESSION_PROFILE_ID: 'ice',
+            HAPI_CODEX_CONFIG_PROFILE: 'ice'
+        })
+        await expect(sessionProfiles.buildSpawnProfileEnv('codex', 'default')).resolves.toEqual({
+            HAPI_SESSION_PROFILE_ID: 'default'
+        })
+        await expect(sessionProfiles.buildSpawnProfileEnv('codex', null)).resolves.toEqual({})
     })
 
     it('builds Codex mode env for non-default permission and collaboration modes', async () => {

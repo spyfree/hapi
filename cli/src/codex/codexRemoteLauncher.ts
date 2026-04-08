@@ -116,6 +116,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
         const messageBuffer = this.messageBuffer;
         const appServerClient = this.appServerClient;
         const appServerEventConverter = new AppServerEventConverter();
+        const configProfile = process.env.HAPI_CODEX_CONFIG_PROFILE?.trim() || undefined;
 
         const normalizeCommand = (value: unknown): string | undefined => {
             if (typeof value === 'string') {
@@ -597,6 +598,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         cwd: session.path,
                         mode: message.mode,
                         mcpServers,
+                        configProfile,
                         cliOverrides: session.codexCliOverrides
                     });
 

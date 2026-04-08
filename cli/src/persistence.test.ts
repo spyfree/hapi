@@ -43,6 +43,7 @@ describe('machine session profile persistence', () => {
                     label: 'Ice',
                     agent: 'codex',
                     defaults: {
+                        configProfile: 'ice',
                         model: 'gpt-5.4',
                         modelReasoningEffort: 'high',
                         permissionMode: 'safe-yolo',

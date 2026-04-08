@@ -9,6 +9,7 @@ export const SessionProfileReasoningEffortSchema = z.enum(SESSION_PROFILE_REASON
 export const SessionProfilePermissionModeSchema = z.enum(CODEX_PERMISSION_MODES)
 
 export const SessionProfileDefaultsSchema = z.object({
+    configProfile: z.string().min(1).optional(),
     model: z.string().optional(),
     modelReasoningEffort: SessionProfileReasoningEffortSchema.optional(),
     permissionMode: SessionProfilePermissionModeSchema.optional(),

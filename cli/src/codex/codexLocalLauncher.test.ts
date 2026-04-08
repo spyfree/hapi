@@ -99,6 +99,7 @@ describe('codexLocalLauncher', () => {
     afterEach(() => {
         harness.launches = [];
         harness.sessionScannerCalls = [];
+        delete process.env.HAPI_CODEX_CONFIG_PROFILE;
     });
 
     it('rebuilds approval and sandbox args from yolo mode', async () => {
@@ -166,6 +167,33 @@ describe('codexLocalLauncher', () => {
             'on-failure',
             '--sandbox',
             'workspace-write',
+            '--model',
+            'o3'
+        ]);
+    });
+
+    it('passes the selected HAPI session profile to local Codex', async () => {
+        process.env.HAPI_CODEX_CONFIG_PROFILE = 'ice';
+        const { session } = createSessionStub('default', ['--model', 'o3']);
+
+        await codexLocalLauncher(session as never);
+
+        expect(harness.launches).toHaveLength(1);
+        expect(harness.launches[0]?.codexArgs).toEqual([
+            '--profile',
+            'ice',
+            '--model',
+            'o3'
+        ]);
+    });
+
+    it('does not pass a Codex profile flag when the selected HAPI profile has no config profile', async () => {
+        const { session } = createSessionStub('default', ['--model', 'o3']);
+
+        await codexLocalLauncher(session as never);
+
+        expect(harness.launches).toHaveLength(1);
+        expect(harness.launches[0]?.codexArgs).toEqual([
             '--model',
             'o3'
         ]);

@@ -350,7 +350,7 @@ export async function startRunner(): Promise<void> {
 
         extraEnv = {
           ...extraEnv,
-          ...buildSpawnProfileEnv(options.profileId)
+          ...await buildSpawnProfileEnv(agent, options.profileId)
         };
 
         if (agent === 'codex') {
